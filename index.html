@@ -1,7 +1,7 @@
 <!--
  * @Author: your name
  * @Date: 2020-04-20 14:10:12
- * @LastEditTime: 2020-04-20 21:28:01
+ * @LastEditTime: 2020-04-21 10:46:31
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: \web\lucas-vue\index.html
@@ -13,6 +13,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
+  <style>
+    #dd{
+      width: 100px;
+      height: 100px;
+      border: 5px solid cadetblue;
+    }
+    .red{
+      background-color: crimson;
+    }
+  </style>
 </head>
 
 <body>
@@ -22,12 +32,15 @@
     <p l-show="isShow">show</p>
     <p>{{person.name}}</p>
     <p>{{person.footer.size}}</p>
-    <p l-for="item in list">{{item}}</p>
+    <p l-for="item in list" l-show="item.done">{{1+item.content}}</p>
     <p l-text="num"></p>
     <p l-on:click='handle'>ddddddddd</p>
     <input l-model="msg" type="text">
     <input type="range" name="" id="" l-model="num">
     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    <div id="dd" l-bind:class="red"></div>
+    <div id="dd" l-bind:class=""></div>
+    <div id="dd" l-bind:class=""></div>
   </div>
 </body>
 

@@ -2,7 +2,7 @@ import Dep from "./dep";
 /*
  * @Author: your name
  * @Date: 2020-04-20 14:16:02
- * @LastEditTime: 2020-04-20 20:57:18
+ * @LastEditTime: 2020-04-21 10:33:22
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: \web\lucas-vue\observer.js
