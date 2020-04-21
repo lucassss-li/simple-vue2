@@ -1,7 +1,7 @@
 <!--
  * @Author: your name
  * @Date: 2020-04-20 14:10:12
- * @LastEditTime: 2020-04-21 10:46:31
+ * @LastEditTime: 2020-04-21 21:50:32
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: \web\lucas-vue\index.html
@@ -22,25 +22,29 @@
     .red{
       background-color: crimson;
     }
+    .green{
+      border: 5px solid green !important;
+    }
   </style>
 </head>
 
 <body>
   <div id="app">
-    a{{num+1}}a
+    a{{num*2}}a
     <p>{{msg}}</p>
     <p l-show="isShow">show</p>
     <p>{{person.name}}</p>
     <p>{{person.footer.size}}</p>
-    <p l-for="item in list" l-show="item.done">{{1+item.content}}</p>
-    <p l-text="num"></p>
+    <p l-for="item in list" l-show="item.done" l-on:click="show(item.id)"><span>{{1+item.content}}</span></p>
+    <p l-text="person.name"></p>
     <p l-on:click='handle'>ddddddddd</p>
-    <input l-model="msg" type="text">
+    <input l-model="list[0].content" type="text">
     <input type="range" name="" id="" l-model="num">
-    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    <div id="dd" l-bind:class="red"></div>
-    <div id="dd" l-bind:class=""></div>
-    <div id="dd" l-bind:class=""></div>
+    <input type="text" l-bind:value="msg">
+    <div id="dd" l-bind:class="bc"></div>
+    <div id="dd" l-bind:class="[bc,border]"></div>
+    <div id="dd" l-bind:class="{red:isRed,green:isRed}"></div>
+    <div id="dd" l-bind:style="{width:num+'px'}"></div>
   </div>
 </body>
 

@@ -4,7 +4,7 @@ import Lucas from './lucas';
 /*
  * @Author: your name
  * @Date: 2020-04-20 14:16:10
- * @LastEditTime: 2020-04-21 10:40:02
+ * @LastEditTime: 2020-04-21 22:15:56
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: \web\lucas-vue\compiler.js
@@ -28,16 +28,16 @@ export default class Compiler {
     return fargment;
   }
   compileNode(node) {
-    if (node.childNodes && node.childNodes.length > 0) {
-      let nodes = [...node.childNodes];
-      for (let node of nodes) {
-        if (node.nodeType === 1) {
-          this.compileNode(node);
-        } else {
-          this.compileText(node);
-        }
-      }
-    }
+    // if (node.childNodes && node.childNodes.length > 0) {
+    //   let nodes = [...node.childNodes];
+    //   for (let node of nodes) {
+    //     if (node.nodeType === 1) {
+    //       this.compileNode(node);
+    //     } else {
+    //       this.compileText(node);
+    //     }
+    //   }
+    // }
     //编译元素节点属性
     let attrs = [...node.attributes];
     if (attrs.some(item => item.name === 'l-for')) {
@@ -48,18 +48,16 @@ export default class Compiler {
       let vm = this.vm;
       let params = value.split(" in ");
       node.removeAttribute('l-for');
+      let buckets = [];
 
       //订阅数组长度，通过fragment替换
-      Watcher.node = node;
-      Watcher.compiler = this;
-      new Watcher(`${params[1]}.length`, vm, newValue => {
+      new Watcher(`${params[1]}`, vm, newValue => {
         let fragment = document.createDocumentFragment();
-
-        let node = Watcher.node;
-        Watcher.node = null;
-        let compiler = Watcher.compiler;
-        Watcher.compiler = null
-
+        let b = [...buckets];
+        buckets = [];
+        while (b.length > 0) {
+          node.parentNode.removeChild(b.pop());
+        }
         function itemToKey(node, list, index) {
           if (node.nodeType === 1) {
             if (node.childNodes && node.childNodes.length > 0) {
@@ -75,21 +73,33 @@ export default class Compiler {
               node.setAttribute(key, value.replace(/item/g, `${list}[${index}]`));
             }
           } else {
-            node.textContent = node.textContent.replace(/\{\{(.*)(item)(\.?.*)\}\}/g, '{{'+'$1'+`${list}[${index}]` + '$3}}');
+            node.textContent = node.textContent.replace(/\{\{(.*)(item)(\.?.*)\}\}/g, '{{' + '$1' + `${list}[${index}]` + '$3}}');
           }
         }
 
-        for (let i = 0; i < newValue; i++) {
+        for (let i = 0; i < newValue.length; i++) {
           let newNode = node.cloneNode(true);
           itemToKey(newNode, params[1], i);
-          compiler.compileNode(newNode);
+          this.compileNode(newNode);
+          buckets.push(newNode);
           fragment.appendChild(newNode);
         }
-        setTimeout(()=>{
-          node.parentNode.replaceChild(fragment,node);
-        },0)
-      })
+        setTimeout(() => {
+          node.hidden = true;
+          node.parentNode.insertBefore(fragment, node);
+        }, 0)
+      }, node, this)
     } else {
+      if (node.childNodes && node.childNodes.length > 0) {
+        let nodes = [...node.childNodes];
+        for (let node of nodes) {
+          if (node.nodeType === 1) {
+            this.compileNode(node);
+          } else {
+            this.compileText(node);
+          }
+        }
+      }
       for (let item of attrs) {
         this.compileIstruction(node, item);
       }
@@ -123,41 +133,171 @@ export default class Compiler {
     let value = attr.value;
     let vm = this.vm;
     if (/^(l-on)/.test(key)) {
+      value = value.split(/\((.*)\)/g);
+      let exp = [];
+      if (value[1]) {
+        let params = [...value[1]]
+        for (let item of params) {
+          if (/(\[|\]|\.)/.test(item)) {
+            exp.push('+');
+          } else {
+            exp.push(item);
+          }
+        }
+        exp = exp.join('').split('+').filter(item => item != '');
+        console.log(exp);
+      }
+      function expToValue(exp){
+        let result = vm;
+        for(let item of exp){
+          result = result[item];
+        }
+        return result;
+      }
       let event = key.slice(5);
-      node.addEventListener(event, vm[value]);
+      node.addEventListener(event, function (e) {
+        vm[value[0]](e,expToValue(exp))
+      });
       node.removeAttribute(key);
     } else if (/^(l-bind)/.test(key)) {
-      
+      let nativekey = key.split(":")[1]
+      switch (nativekey) {
+        case 'class': {
+          if (value.includes('[')) {
+            let classes = value.slice(1, value.length - 1).split(',');
+            for (let item of classes) {
+              new Watcher(item, vm, newValue => node.classList.add(newValue));
+            }
+          } else if (value.includes('{')) {
+            let a = value.slice(1, value.length - 1).split(',');
+            let b = {};
+            for (let item of a) {
+              let [key, value] = item.split(":");
+              b[key] = value;
+            }
+            for (let item in b) {
+              new Watcher(b[item], vm, newValue => {
+                if (newValue) {
+                  node.classList.add(item);
+                } else {
+                  node.classList.remove(item);
+                }
+              })
+            }
+          } else {
+            new Watcher(value, vm, newValue => node.classList.add(newValue));
+          }
+          break;
+        }
+        case 'style': {
+          let a = value.slice(1, value.length - 1).split(',');
+          let b = {};
+          for (let item of a) {
+            let [key, value] = item.split(":");
+            b[key] = value;
+          }
+          for (let item in b) {
+            new Watcher(b[item], vm, newValue => node.style[item] = newValue);
+          }
+          break;
+        }
+        default: {
+          new Watcher(value, vm, newValue => node[nativekey] = newValue);
+        }
+      }
       node.removeAttribute(key);
     } else if (/^l-/.test(key)) {
       switch (key) {
         case 'l-model': {
-          new Watcher(value, vm, newValue => node.value = newValue);
-          node.oninput = function () {
-            vm[value] = node.value;
+          let flag = value.match(/(\[|\]|\.)/) === null;
+          if (flag) {
+            new Watcher(value, vm, newValue => node.value = newValue);
+          } else {
+            let nvalue = this.changeInstruction(value);
+            new Watcher(nvalue, vm, newValue => node.value = newValue);
+          }
+          if (flag) {
+            node.addEventListener('input', function () {
+              vm[value] = node.value;
+            })
+          } else {
+            let params = [...value]
+            let exp = [];
+            for (let item of params) {
+              if (/(\[|\]|\.)/.test(item)) {
+                exp.push('+');
+              } else {
+                exp.push(item);
+              }
+            }
+            exp = exp.filter(item => item != '').join("").split("+");
+            value = exp.shift();
+            for (let item of exp) {
+              if (item !== '') value = value + "['" + item + "']";
+            }
+            let fn = new Function('e', "this." + value + "=e.target.value").bind(vm);
+            node.addEventListener('input', fn);
           }
           break;
         }
         case 'l-text': {
-          new Watcher(value, vm, newValue => node.innerText = newValue);
+          if (value.match(/(\[|\]|\.)/) === null) {
+            new Watcher(value, vm, newValue => node.innerText = newValue);
+          } else {
+            value = this.changeInstruction(value);
+            new Watcher(value, vm, newValue => node.innerText = newValue);
+          }
           break;
         }
         case 'l-html': {
-          new Watcher(value, vm, newValue => node.innerHTML = newValue);
+          if (value.match(/(\[|\]|\.)/) === null) {
+            new Watcher(value, vm, newValue => node.innerHTML = newValue);
+          } else {
+            value = this.changeInstruction(value);
+            new Watcher(value, vm, newValue => node.innerHTML = newValue);
+          }
           break;
         }
         case 'l-show': {
-          new Watcher(value, vm, newValue => {
-            if (!newValue) {
-              node.hidden = true;
-            } else {
-              node.hidden = false;
-            }
-          });
+          if (value.match(/(\[|\]|\.)/) === null) {
+            new Watcher(value, vm, newValue => {
+              if (!newValue) {
+                node.hidden = true;
+              } else {
+                node.hidden = false;
+              }
+            });
+          } else {
+            value = this.changeInstruction(value);
+            new Watcher(value, vm, newValue => {
+              if (!newValue) {
+                node.hidden = true;
+              } else {
+                node.hidden = false;
+              }
+            });
+          }
           break;
         }
       }
       node.removeAttribute(key);
     }
+  }
+  changeInstruction(value) {
+    let params = [...value]
+    let exp = [];
+    for (let item of params) {
+      if (/(\[|\]|\.)/.test(item)) {
+        exp.push('+');
+      } else {
+        exp.push(item);
+      }
+    }
+    exp = exp.filter(item => item != '').join("").split("+");
+    value = exp.shift();
+    for (let item of exp) {
+      if (item !== '') value = value + "['" + item + "']";
+    }
+    return value;
   }
 }
