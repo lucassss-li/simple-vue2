@@ -1,14 +1,5 @@
 import Watcher from './watcher'
-import { dir } from 'async';
-import Lucas from './lucas';
-/*
- * @Author: your name
- * @Date: 2020-04-20 14:16:10
- * @LastEditTime: 2020-04-21 22:15:56
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: \web\lucas-vue\compiler.js
- */
+
 export default class Compiler {
   constructor(vm) {
     this.vm = vm;
@@ -28,17 +19,6 @@ export default class Compiler {
     return fargment;
   }
   compileNode(node) {
-    // if (node.childNodes && node.childNodes.length > 0) {
-    //   let nodes = [...node.childNodes];
-    //   for (let node of nodes) {
-    //     if (node.nodeType === 1) {
-    //       this.compileNode(node);
-    //     } else {
-    //       this.compileText(node);
-    //     }
-    //   }
-    // }
-    //编译元素节点属性
     let attrs = [...node.attributes];
     if (attrs.some(item => item.name === 'l-for')) {
       //编译l-for指令
@@ -50,43 +30,45 @@ export default class Compiler {
       node.removeAttribute('l-for');
       let buckets = [];
 
-      //订阅数组长度，通过fragment替换
       new Watcher(`${params[1]}`, vm, newValue => {
-        let fragment = document.createDocumentFragment();
-        let b = [...buckets];
-        buckets = [];
-        while (b.length > 0) {
-          node.parentNode.removeChild(b.pop());
-        }
-        function itemToKey(node, list, index) {
-          if (node.nodeType === 1) {
-            if (node.childNodes && node.childNodes.length > 0) {
-              let nodes = [...node.childNodes];
-              for (let node of nodes) {
-                itemToKey(node, list, index);
-              }
-            }
-            let attrs = [...node.attributes];
-            for (let item of attrs) {
-              let key = item.name;
-              let value = item.value;
-              node.setAttribute(key, value.replace(/item/g, `${list}[${index}]`));
-            }
-          } else {
-            node.textContent = node.textContent.replace(/\{\{(.*)(item)(\.?.*)\}\}/g, '{{' + '$1' + `${list}[${index}]` + '$3}}');
-          }
-        }
-
-        for (let i = 0; i < newValue.length; i++) {
-          let newNode = node.cloneNode(true);
-          itemToKey(newNode, params[1], i);
-          this.compileNode(newNode);
-          buckets.push(newNode);
-          fragment.appendChild(newNode);
-        }
         setTimeout(() => {
-          node.hidden = true;
-          node.parentNode.insertBefore(fragment, node);
+          let fragment = document.createDocumentFragment();
+          let b = [...buckets];
+          buckets = [];
+          while (b.length > 0) {
+            node.parentNode.removeChild(b.pop());
+          }
+          function itemToKey(node, list, index) {
+            if (node.nodeType === 1) {
+              if (node.childNodes && node.childNodes.length > 0) {
+                let nodes = [...node.childNodes];
+                for (let node of nodes) {
+                  itemToKey(node, list, index);
+                }
+              }
+              let attrs = [...node.attributes];
+              for (let item of attrs) {
+                let key = item.name;
+                let value = item.value;
+                node.setAttribute(key, value.replace(/item/g, `${list}[${index}]`));
+              }
+            } else {
+              node.textContent = node.textContent.replace(/\{\{(.*)(item)(\.?.*)\}\}/g, '{{' + '$1' + `${list}[${index}]` + '$3}}');
+            }
+          }
+
+          for (let i = 0; i < newValue.length; i++) {
+            let newNode = node.cloneNode(true);
+            itemToKey(newNode, params[1], i);
+            this.compileNode(newNode);
+            newNode.hidden = false;
+            buckets.push(newNode);
+            fragment.appendChild(newNode);
+          }
+          setTimeout(() => {
+            node.hidden = true;
+            node.parentNode.insertBefore(fragment, node);
+          }, 0)
         }, 0)
       }, node, this)
     } else {
@@ -145,30 +127,24 @@ export default class Compiler {
           }
         }
         exp = exp.join('').split('+').filter(item => item != '');
-        console.log(exp);
       }
-      function expToValue(exp){
+      function expToValue(exp) {
         let result = vm;
-        for(let item of exp){
+        for (let item of exp) {
           result = result[item];
         }
         return result;
       }
       let event = key.slice(5);
       node.addEventListener(event, function (e) {
-        vm[value[0]](e,expToValue(exp))
+        vm[value[0]](e, expToValue(exp))
       });
       node.removeAttribute(key);
     } else if (/^(l-bind)/.test(key)) {
       let nativekey = key.split(":")[1]
       switch (nativekey) {
         case 'class': {
-          if (value.includes('[')) {
-            let classes = value.slice(1, value.length - 1).split(',');
-            for (let item of classes) {
-              new Watcher(item, vm, newValue => node.classList.add(newValue));
-            }
-          } else if (value.includes('{')) {
+          if (/^\{/.test(value)) {
             let a = value.slice(1, value.length - 1).split(',');
             let b = {};
             for (let item of a) {
@@ -183,6 +159,11 @@ export default class Compiler {
                   node.classList.remove(item);
                 }
               })
+            }
+          } else if (/^\[/.test(value)) {
+            let classes = value.slice(1, value.length - 1).split(',');
+            for (let item of classes) {
+              new Watcher(item, vm, newValue => node.classList.add(newValue));
             }
           } else {
             new Watcher(value, vm, newValue => node.classList.add(newValue));
@@ -211,15 +192,29 @@ export default class Compiler {
         case 'l-model': {
           let flag = value.match(/(\[|\]|\.)/) === null;
           if (flag) {
-            new Watcher(value, vm, newValue => node.value = newValue);
+            if (!/^checkbox$/.test(node.type)) {
+              new Watcher(value, vm, newValue => node.value = newValue);
+            } else {
+              new Watcher(value, vm, newValue => node.checked = newValue);
+            }
           } else {
             let nvalue = this.changeInstruction(value);
-            new Watcher(nvalue, vm, newValue => node.value = newValue);
+            if (!/^checkbox$/.test(node.type)) {
+              new Watcher(nvalue, vm, newValue => node.value = newValue);
+            } else {
+              new Watcher(nvalue, vm, newValue => node.checked = newValue);
+            }
           }
           if (flag) {
-            node.addEventListener('input', function () {
-              vm[value] = node.value;
-            })
+            if (!/^checkbox$/.test(node.type)) {
+              node.addEventListener('input', function () {
+                vm[value] = node.value;
+              })
+            } else {
+              node.addEventListener('input', function () {
+                vm[value] = node.checked;
+              })
+            }
           } else {
             let params = [...value]
             let exp = [];
@@ -235,8 +230,13 @@ export default class Compiler {
             for (let item of exp) {
               if (item !== '') value = value + "['" + item + "']";
             }
-            let fn = new Function('e', "this." + value + "=e.target.value").bind(vm);
-            node.addEventListener('input', fn);
+            if (!/^checkbox$/.test(node.type)) {
+              let fn = new Function('e', "this." + value + "=e.target.value").bind(vm);
+              node.addEventListener('input', fn);
+            } else {
+              let fn = new Function('e', "this." + value + "=e.target.checked").bind(vm);
+              node.addEventListener('input', fn);
+            }
           }
           break;
         }
@@ -261,20 +261,12 @@ export default class Compiler {
         case 'l-show': {
           if (value.match(/(\[|\]|\.)/) === null) {
             new Watcher(value, vm, newValue => {
-              if (!newValue) {
-                node.hidden = true;
-              } else {
-                node.hidden = false;
-              }
+              node.hidden = newValue;
             });
           } else {
             value = this.changeInstruction(value);
             new Watcher(value, vm, newValue => {
-              if (!newValue) {
-                node.hidden = true;
-              } else {
-                node.hidden = false;
-              }
+              node.hidden = newValue;
             });
           }
           break;
