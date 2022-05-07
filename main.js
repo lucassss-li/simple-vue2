@@ -3,7 +3,7 @@ import Lucas from "./lucas"
 const vm = new Lucas({
   el: '#app',
   data: {
-    model: '',
+    model: 'aaa',
     list: [
       { id: 1, content: 'one', red: true },
       { id: 2, content: 'two', red: false },

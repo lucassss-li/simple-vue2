@@ -65,3 +65,4 @@ class Lucas {
 }
 
 window.Lucas = Lucas;
+export default Lucas

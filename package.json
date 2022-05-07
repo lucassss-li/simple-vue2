@@ -1,12 +1,12 @@
 {
-  "name": "lucas-vue",
+  "name": "simple-vue",
   "version": "1.0.0",
   "description": "",
   "main": "lucas.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack",
-    "serve": "webpack-dev-server"
+    "serve": "webpack-dev-server --config ./webpack.dev.config.js"
   },
   "keywords": [],
   "author": "",
